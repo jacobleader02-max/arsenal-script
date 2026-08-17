@@ -1,4 +1,4 @@
-local BASE = "https://raw.githubusercontent.com/YOURUSERNAME/YOURREPO/main/"
+local BASE = "https://raw.githubusercontent.com/jacobleader02-max/arsenal-script/main/"
 local function req(file)
     return loadstring(game:HttpGet(BASE..file))()
 end
