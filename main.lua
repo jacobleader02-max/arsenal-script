@@ -3,14 +3,19 @@ local function req(file)
     return loadstring(game:HttpGet(BASE..file))()
 end
 
-local Utils   = req("utils.lua")
-local CFG     = req("config.lua")
-local PlrMod  = req("players.lua")
-local ESP     = req("esp.lua")
-local Aimbot  = req("aimbot.lua")
-local Knife   = req("knife.lua")
-local UI      = req("ui.lua")
-local HttpService = game:GetService("HttpService")
+local Utils      = req("utils.lua")
+local CFG        = req("config.lua")
+local PlrMod     = req("players.lua")
+local ESP        = req("esp.lua")
+local Aimbot     = req("aimbot.lua")
+local Knife      = req("knife.lua")
+local UI         = req("ui.lua")
+local HttpService= game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players    = game:GetService("Players")
+local LocalPlayer= Players.LocalPlayer
+local Camera     = workspace.CurrentCamera
 
 ESP.init(CFG, Utils, PlrMod)
 Aimbot.init(CFG, PlrMod)
@@ -18,12 +23,8 @@ Knife.init(CFG, PlrMod)
 UI.init(CFG, Utils)
 
 local tabFrames = UI.getTabs()
-local SG        = UI.getSG()
 
 -- Player hooks
-local Players     = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 Players.PlayerAdded:Connect(function(p) ESP.make(p) end)
 Players.PlayerRemoving:Connect(function(p)
     Knife.onPlayerLeave(p)
@@ -32,8 +33,6 @@ end)
 for _,p in ipairs(Players:GetPlayers()) do ESP.make(p) end
 
 -- Player mods
-local RunService = game:GetService("RunService")
-
 local function applyStats()
     local char = LocalPlayer.Character
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -48,8 +47,6 @@ end)
 LocalPlayer.CharacterAdded:Connect(function(c)
     c:WaitForChild("Humanoid") applyStats()
 end)
-
-local UserInputService = game:GetService("UserInputService")
 RunService.Stepped:Connect(function()
     if not CFG.Noclip then return end
     local char = LocalPlayer.Character if not char then return end
@@ -65,7 +62,6 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- FOV circle
-local Camera = workspace.CurrentCamera
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible=false FOVCircle.Radius=CFG.FOV
 FOVCircle.Color=Color3.fromRGB(140,70,255) FOVCircle.Thickness=1
@@ -92,7 +88,8 @@ RunService.RenderStepped:Connect(function()
     ESP.update(Camera, myPos)
 end)
 
--- Config
+-- Config system
+local DEFAULTS = req("config.lua")
 local SERIALISABLE={
     "ESPEnabled","ShowBoxes","ShowNames","ShowDistance","ShowHealth","ESPTeamCheck",
     "AimbotEnabled","FOV","Smoothness","AimPart","AimTeamCheck",
@@ -100,6 +97,7 @@ local SERIALISABLE={
 }
 local widgetRefs={}
 local function reg(key,ref) if ref then widgetRefs[key]=ref end end
+
 local function exportCFG()
     local t={} for _,k in ipairs(SERIALISABLE) do t[k]=CFG[k] end
     local ok,str=pcall(function() return HttpService:JSONEncode(t) end)
@@ -132,7 +130,7 @@ local function resetCFG()
     applyStats()
 end
 
--- Build tabs
+-- ESP tab
 local espTab=tabFrames["ESP"]
 UI.mkSection(espTab,"Visibility")
 reg("ESPEnabled",   UI.mkToggle(espTab,"ESP Enabled",    CFG.ESPEnabled,   function(v) CFG.ESPEnabled=v end))
@@ -143,6 +141,7 @@ reg("ShowHealth",   UI.mkToggle(espTab,"Health",         CFG.ShowHealth,   funct
 UI.mkSection(espTab,"Team")
 reg("ESPTeamCheck", UI.mkToggle(espTab,"Skip Teammates", CFG.ESPTeamCheck, function(v) CFG.ESPTeamCheck=v end))
 
+-- Aimbot tab
 local aimTab=tabFrames["Aimbot"]
 UI.mkSection(aimTab,"Aimbot")
 reg("AimbotEnabled",UI.mkToggle(aimTab,"Aimbot Enabled", CFG.AimbotEnabled,function(v) CFG.AimbotEnabled=v end))
@@ -171,6 +170,7 @@ UI.mkKeybind(aimTab,"Stalk Key  [press=start  press again=cancel]","F",function(
     end
 end)
 
+-- Player tab
 local plrTab=tabFrames["Player"]
 UI.mkSection(plrTab,"Movement")
 reg("WalkSpeed",UI.mkNumInput(plrTab,"Walk Speed",CFG.WalkSpeed,16,500,function(v) CFG.WalkSpeed=v applyStats() end))
@@ -187,6 +187,7 @@ reg("Noclip", UI.mkToggle(plrTab,"Noclip",  false,function(v)
     end
 end))
 
+-- Config tab
 local cfgTab=tabFrames["Config"]
 UI.mkSection(cfgTab,"Export")
 local exportBox=UI.mkTextBox(cfgTab,"// click Export")
@@ -199,13 +200,5 @@ end)
 UI.mkSection(cfgTab,"Reset")
 UI.mkButton(cfgTab,"> Reset to Default",function() resetCFG() end)
 
--- switch to ESP tab by default
-for n,f in pairs(tabFrames) do f.Visible=(n=="ESP") end
-for n,b in pairs(UI.getTabs()) do end
-tabs = {}
-for n,btn in pairs(tabFrames) do end
--- trigger switchTab manually
-local allBtns = {}
-for _,c in ipairs(require and {} or {}) do end
--- just show ESP
+-- Show ESP tab by default
 tabFrames["ESP"].Visible = true
