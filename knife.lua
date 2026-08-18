@@ -85,22 +85,29 @@ function Knife.update()
     local tarRoot = tarChar and tarChar:FindFirstChild("HumanoidRootPart")
     local tarHum  = tarChar and tarChar:FindFirstChildOfClass("Humanoid")
 
-    if tarRoot and tarHum and tarHum.Health > 0 and tarRoot.Position.Y > -10 then
-        Knife.teleport(tarRoot)
-        if not killCooldown then
-            killCooldown = true
-            Knife.kill()
-            task.delay(0.6, function()
-                killCooldown = false
-                local h = tarChar and tarChar:FindFirstChildOfClass("Humanoid")
-                if not h or h.Health <= 0 then
-                    Knife.cancel()
-                end
-            end)
-        end
-    else
-        -- underground or dead — pause, don't cancel
-        -- will resume when they respawn above ground
+    if not tarRoot or not tarHum or tarHum.Health <= 0 then
+        -- target died — cancel stalk immediately
+        Knife.cancel()
+        return
+    end
+
+    if tarRoot.Position.Y < -10 then
+        -- underground — cancel stalk
+        Knife.cancel()
+        return
+    end
+
+    Knife.teleport(tarRoot)
+    if not killCooldown then
+        killCooldown = true
+        Knife.kill()
+        task.delay(0.6, function()
+            killCooldown = false
+            local h = tarChar and tarChar:FindFirstChildOfClass("Humanoid")
+            if not h or h.Health <= 0 then
+                Knife.cancel()
+            end
+        end)
     end
 end
 
