@@ -17,8 +17,10 @@ return {
     KnifeEnabled = true,
     KnifeKey     = Enum.KeyCode.F,
     KnifeKeyLabel= "F",
+    KillAllKey   = Enum.KeyCode.G,
     WalkSpeed    = 16,
     JumpPower    = 50,
     Noclip       = false,
     InfJump      = false,
+    Godmode      = false,
 }
