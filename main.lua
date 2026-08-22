@@ -1,6 +1,13 @@
 local BASE = "https://raw.githubusercontent.com/jacobleader02-max/arsenal-script/main/"
 local function req(file)
-    return loadstring(game:HttpGet(BASE..file))()
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet(BASE..file))()
+    end)
+    if not ok then
+        warn("Failed to load "..file..": "..tostring(result))
+        return nil
+    end
+    return result
 end
 
 local Utils      = req("utils.lua")
@@ -11,11 +18,11 @@ local Aimbot     = req("aimbot.lua")
 local Knife      = req("knife.lua")
 local UI         = req("ui.lua")
 local HttpService= game:GetService("HttpService")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Players    = game:GetService("Players")
-local LocalPlayer= Players.LocalPlayer
-local Camera     = workspace.CurrentCamera
+
+if not Utils or not CFG or not PlrMod or not ESP or not Aimbot or not Knife or not UI then
+    warn("One or more modules failed to load")
+    return
+end
 
 ESP.init(CFG, Utils, PlrMod)
 Aimbot.init(CFG, PlrMod)
@@ -23,6 +30,12 @@ Knife.init(CFG, PlrMod)
 UI.init(CFG, Utils)
 
 local tabFrames = UI.getTabs()
+
+local Players      = game:GetService("Players")
+local RunService   = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer  = Players.LocalPlayer
+local Camera       = workspace.CurrentCamera
 
 -- Player hooks
 Players.PlayerAdded:Connect(function(p) ESP.make(p) end)
@@ -41,9 +54,20 @@ local function applyStats()
     hum.UseJumpPower = true
     hum.JumpPower    = CFG.JumpPower
 end
+
 RunService.Heartbeat:Connect(function()
     if CFG.WalkSpeed~=16 or CFG.JumpPower~=50 then applyStats() end
+    -- Godmode: keep forcefield alive every frame
+    if CFG.Godmode then
+        local char = LocalPlayer.Character
+        if char and not char:FindFirstChildOfClass("ForceField") then
+            local ff = Instance.new("ForceField")
+            ff.Visible = false
+            ff.Parent  = char
+        end
+    end
 end)
+
 LocalPlayer.CharacterAdded:Connect(function(c)
     c:WaitForChild("Humanoid") applyStats()
 end)
@@ -89,15 +113,14 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- Config system
-local DEFAULTS = req("config.lua")
+local DEFAULTS    = req("config.lua")
 local SERIALISABLE={
     "ESPEnabled","ShowBoxes","ShowNames","ShowDistance","ShowHealth","ESPTeamCheck",
     "AimbotEnabled","FOV","Smoothness","AimPart","AimTeamCheck",
-    "KnifeEnabled","WalkSpeed","JumpPower","Noclip","InfJump",
+    "KnifeEnabled","WalkSpeed","JumpPower","Noclip","InfJump","Godmode",
 }
 local widgetRefs={}
 local function reg(key,ref) if ref then widgetRefs[key]=ref end end
-
 local function exportCFG()
     local t={} for _,k in ipairs(SERIALISABLE) do t[k]=CFG[k] end
     local ok,str=pcall(function() return HttpService:JSONEncode(t) end)
@@ -163,10 +186,18 @@ UI.mkKeybind(aimTab,"Aim Key","E",function(input,label)
 end)
 UI.mkSection(aimTab,"Knife Stalk")
 reg("KnifeEnabled", UI.mkToggle(aimTab,"Knife Enabled",CFG.KnifeEnabled,function(v) CFG.KnifeEnabled=v end))
-UI.mkKeybind(aimTab,"Stalk Key  [press=start  press again=cancel]","F",function(input,_)
+UI.mkKeybind(aimTab,"Stalk Key  [toggle]","F",function(input,_)
     if input.KeyCode~=Enum.KeyCode.Unknown then
         CFG.KnifeKey=input.KeyCode
         CFG.KnifeKeyLabel=tostring(input.KeyCode):gsub("Enum.KeyCode.","")
+    end
+end)
+UI.mkSection(aimTab,"Kill All")
+UI.mkButton(aimTab,"> Kill All  [G to toggle]",function()
+    if Knife.killAllIsActive() then
+        Knife.cancelAll()
+    else
+        Knife.startKillAll()
     end
 end)
 
@@ -186,6 +217,17 @@ reg("Noclip", UI.mkToggle(plrTab,"Noclip",  false,function(v)
         end end
     end
 end))
+UI.mkSection(plrTab,"Defense")
+reg("Godmode",UI.mkToggle(plrTab,"Godmode",false,function(v)
+    CFG.Godmode=v
+    if not v then
+        local char=LocalPlayer.Character
+        if char then
+            local ff=char:FindFirstChildOfClass("ForceField")
+            if ff then ff:Destroy() end
+        end
+    end
+end))
 
 -- Config tab
 local cfgTab=tabFrames["Config"]
@@ -200,5 +242,4 @@ end)
 UI.mkSection(cfgTab,"Reset")
 UI.mkButton(cfgTab,"> Reset to Default",function() resetCFG() end)
 
--- Show ESP tab by default
 tabFrames["ESP"].Visible = true
